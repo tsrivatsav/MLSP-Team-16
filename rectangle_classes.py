@@ -24,7 +24,7 @@ class rectangle:
         elif pos[1] + self.width > self.col:
             pos[1] = self.col - self.width
         
-        frame = np.ones((self.row,self.col))*255
+        frame = np.ones((self.row, self.col))*255
         frame[pos[0]:pos[0]+self.height, pos[1]:pos[1]+self.width] = 0
 
         return frame
@@ -34,7 +34,8 @@ class rectangle:
         pos_list = []
         vel_list = []
 
-        out = cv2.VideoWriter('sq.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (self.row, self.col), False)
+        if write_vid_flag:
+            out = cv2.VideoWriter('sq.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (self.row, self.col), False)
 
         pos = np.random.randint((self.row - self.height, self.col - self.width))
         
@@ -89,9 +90,10 @@ class rectangle:
             if write_vid_flag:
                 out.write(frame.astype('uint8'))
 
-        out.release()
+        if write_vid_flag:
+            out.release()
             
-        return np.array(vid), np.array(pos_list), np.array(vel_list)
+        return vid, np.array(pos_list), np.array(vel_list)
 
     def show_rect(self):
         plt.imshow(self.rect, cmap="gray", vmin=0, vmax=1)
@@ -104,8 +106,12 @@ def Make_SQ_Vid():
     sq_hw = 10 # rect height & width 
 
     obj = rectangle(row, col, sq_hw, sq_hw)
-    obj.draw_roming_rectangle(write_vid_flag=True)
-    return
+    vid, pos, vel = obj.draw_roming_rectangle(write_vid_flag=True)
+    
+    out = cv2.VideoWriter('sq1.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 30, (row, col), False)
+    for frame in vid:
+        out.write(frame.astype('uint8'))
+    out.release()
 
 if __name__ == '__main__':
     Make_SQ_Vid()
