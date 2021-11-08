@@ -7,118 +7,105 @@ import matplotlib.pyplot as plt
 import cv2 
 
 class rectangle:
-    def __init__(self, r, c, h, w, lr=0, ud=0):
-        self.row = r
-        self.col = c
-        self.hieght = h
-        self.width = w
-        self.shift_lr = lr
-        self.shift_ud = ud
-        self.rect = self.draw_rect(lr,ud)
+    def __init__(self, row, col, height, width):
+        self.row = row
+        self.col = col
+        self.height = height
+        self.width = width
 
-    def draw_rect(self, s_lr, s_ud):
-        xl = round(self.col/2 - self.width/2) + s_lr 
-        xr = round(self.col/2 + self.width/2) + s_lr
-        yd = round(self.row/2 + self.hieght/2) + s_ud 
-        yu = round(self.row/2 - self.hieght/2) + s_ud
-
-        if xl < 0:
-            xl = 0
-        if xr > self.col:
-            xr = self.col-1
-        if xl > xr:
-            xl = xr
-
-        if yu < 0:
-            yu = 0
-        if yd > self.row:
-            yd = self.row-1
-        if yu > yd:
-            yu = yd
+    def draw_rect(self, pos):
+        if pos[0] < 0:
+            pos[0] = 0
+        elif pos[0] + self.height > self.row:
+            pos[0] = self.row - self.height
         
-        if xl != xr and yu != yd:
-            rect = np.ones((self.row,self.col))
-            rect[yu:yd,xl:xr] = 0
-        if xl == xr and yu != yd:
-            rect = np.ones((self.row,self.col))
-            rect[yu:yd,xl] = 0
-        if xl != xr and yu == yd:
-            rect = np.ones((self.row,self.col))
-            rect[yu,xl:xr] = 0
-        if xl == xr and yu == yd:
-            rect = np.ones((self.row,self.col))     
-       
-        return rect
+        if pos[1] < 0:
+            pos[1] = 0
+        elif pos[1] + self.width > self.col:
+            pos[1] = self.col - self.width
+        
+        frame = np.ones((self.row,self.col))*255
+        frame[pos[0]:pos[0]+self.height, pos[1]:pos[1]+self.width] = 0
+
+        return frame
+    
+    def draw_roming_rectangle(self, max_speed=10, max_acc=0.5, num_frames=1800, fps=30, write_vid_flag = False):
+        vid = []
+        pos_list = []
+        vel_list = []
+
+        out = cv2.VideoWriter('sq.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (self.row, self.col), False)
+
+        pos = np.random.randint((self.row - self.height, self.col - self.width))
+        
+        vel = np.random.random(2)
+        vel = vel/np.linalg.norm(vel)
+        
+        acc = np.random.random(2)
+        acc = acc/np.linalg.norm(acc) * (np.random.random()/2 + 0.5) * max_acc
+
+        pos_list.append(pos)
+        vel_list.append(vel)
+
+        turn_counter = 0
+        turn_threshold = np.random.randint(10, 20)
+        
+        for _ in range(num_frames-1):
+            pos = (pos.astype(float) + vel).astype(int)
+            vel += acc
+            if np.linalg.norm(vel) > max_speed:
+                vel = vel / np.linalg.norm(vel) * max_speed
+
+            if pos[0] < 0:
+                pos[0] = 0
+                vel[0] *= -1
+                acc[0] *= -1
+            elif pos[0] + self.height > self.row:
+                pos[0] = self.row - self.height
+                vel[0] *= -1
+                acc[0] *= -1
+            
+            if pos[1] < 0:
+                pos[1] = 0
+                vel[1] *= -1
+                acc[1] *= -1
+            elif pos[1] + self.width > self.col:
+                pos[1] = self.col - self.width
+                vel[1] *= -1
+                acc[1] *= -1
+
+            if turn_counter >= turn_threshold:
+                acc = np.random.random(2)
+                acc = acc / np.linalg.norm(acc) * (np.random.random()/2 + 0.5) * max_acc
+                turn_counter = 0
+                turn_threshold = np.random.randint(10, 20)
+            else:
+                turn_counter += 1
+
+            frame = self.draw_rect(pos)
+            vid.append(frame)
+            pos_list.append(pos)
+            vel_list.append(vel)
+            if write_vid_flag:
+                out.write(frame.astype('uint8'))
+
+        out.release()
+            
+        return np.array(vid), np.array(pos_list), np.array(vel_list)
 
     def show_rect(self):
         plt.imshow(self.rect, cmap="gray", vmin=0, vmax=1)
-
-
-class moving_rect(rectangle):
-    def __init__(self, r, c, h, w, num_frames, d, v=0, lr=0, ud=0, FPS=None, write_vid_flag = False):
-        self.velocity = v
-        self.direction = d
-        rectangle.__init__(self, r, c, h, w, lr, ud)
-        self.moving_rect = self.draw_moving_rect(num_frames, FPS, write_vid_flag)
-    
-    def draw_moving_rect(self,num_frames, FPS=None, write_vid_flag = False):
-
-        if type(self.velocity) != list:
-            frame_stack = self.draw_contant_vel(num_frames, FPS, write_vid_flag)
-        else:
-            print("in deveploment")
-
-        return frame_stack
-        
-    def draw_contant_vel(self, num_frames, FPS=None, write_vid_flag = False):
-        dx, dy = 0, 0
-        rect_vid = list()
-
-        out = cv2.VideoWriter('sq.mp4', cv2.VideoWriter_fourcc(*'mp4v'), FPS, (self.row, self.col), False)
-
-        if write_vid_flag:
-            
-            for n in range(num_frames):
-                d_lr = self.direction[0]
-                d_ud = self.direction[1]
-                dx += round(self.velocity*(n-1)*d_lr) + self.shift_lr
-                dy += round(self.velocity*(n-1)*d_ud) + self.shift_ud
-                new_rect = self.draw_rect(dx, dy)
-                data = np.random.randint(0,256, (self.row, self.col), dtype='uint8')
-                data = 255*new_rect
-                out.write(data.astype('uint8'))
-                rect_vid.append(new_rect)
-
-            out.release()
-            
-        
-        else:
-
-            for n in range(num_frames):
-                d_lr = self.direction[0]
-                d_ud = self.direction[1]
-                dx += round(self.velocity*(n-1)*d_lr)
-                dy += round(self.velocity*(n-1)*d_ud)
-                new_rect = self.draw_rect(dx, dy)
-
-                rect_vid.append(new_rect)
-
-        return np.array(rect_vid)
-
 
 
 def Make_SQ_Vid():
 
     row = 256
     col = 256
-    sq_hw = 10 # pix hieght & width 
-    shift_lr = -10
-    shift_ud = 0
+    sq_hw = 10 # rect height & width 
 
-    num_f = 100
-    direction = [1,0]
-    vel = 1 # pix/frame
-
-    obj = moving_rect(row,col,sq_hw,sq_hw,num_f, direction, vel, lr=shift_lr, ud=shift_ud, FPS=10, write_vid_flag=True)
-    obj.moving_rect.shape
+    obj = rectangle(row, col, sq_hw, sq_hw)
+    obj.draw_roming_rectangle(write_vid_flag=True)
     return
+
+if __name__ == '__main__':
+    Make_SQ_Vid()
